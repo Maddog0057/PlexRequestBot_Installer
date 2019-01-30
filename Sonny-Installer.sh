@@ -6,94 +6,135 @@
 # https://github.com/Maddog0057/PlexRequestBot_Installer.git #
 ##############################################################
 
-if [[ "$EUID" -ne 0 ]]
-	then echo "Installer must be run as root!"
-	exit 0
-else
-	main
-fi
-
-install_dependancies() {
+install_dependancies() 
+{
+	clear
 	echo "Checking for Dependancies"
-
-	foreach i in ('python3', 'python3-pip', 'git')
-	t=$(which $i)
-	if [[ ! $t ]]
-		then
-			apt install -y $i
+	OS="$(awk '/ID_LIKE=/' /etc/os-release | sed 's/ID_LIKE=//')"
+	deps=("python3" "python3-pip" "git")
+	if [[ $OS =~ debian ]]
+	then
+		apt update -y
+		apt upgrade -y
+		pkmgr="apt install -y "
+		deps=("python3.6" "python3-pip" "git")
+	elif [[ $OS =~ rhel ]]
+	then
+		yum update -y
+		yum upgrade -y
+		#yum install -y yum-utils epel-release 
+		pkmgr="yum install -y "
+		deps=("yum-utils" "epel-release" "python36-setuptools" "git")
+	else
+		read -p "Could not determine OS, Enter command to install package [ex. apt install -y] " pkmgr
 	fi
+	for i in "${deps[@]}"
+		do
+		if [[ "$(which $i 2>&1)" =~ no ]]
+		then
+			clear
+			echo "Installing $i"
+			$pkmgr $i
+		fi
+	done
+	if [[ $OS =~ rhel ]]; then easy_install-3.6 pip; fi
+			ln -s /bin/python36 /bin/python3
 }
 
-function env_setup(name) {
-	useradd -s $name /sbin/nologin
-	mkdir /opt/PlexRequestBot
-	git clone https://github.com/Maddog0057/PlexRequestBot.git /opt
-	chown -R $name:$name /opt/PlexRequestBot
+env_setup () 
+{
+	export PATH="$PATH:/usr/bin/local"
+	if [[ "$(id -u $usname 2>&1)" =~ no ]]
+	then
+		useradd $usname -s /sbin/nologin
+	fi
+	#mkdir /opt/PlexRequestBot
+	git clone https://github.com/Maddog0057/PlexRequestBot.git /opt/PlexRequestBot
+	mkdir $lpath
+	if [[ ! $(echo $lpath) =~ /opt/PlexRequestBot ]]; then chown -R $usname:$usname $lpath; fi
+	chown -R $usname:$usname /opt/PlexRequestBot
 	cd /opt/PlexRequestBot/
 	python3 -m pip install -U https://github.com/Rapptz/discord.py/archive/rewrite.zip
-	pip3 install -r requirements.txt
+	python3 -m pip install -r requirements.txt
 }
 
-function fill_vars(config_vars){
+fill_vars ()
+{
 	echo "Enter the following information or press enter to use default values."
-	read -p "Enter Discord Bot Name [Sonny]" config_vars[0]
-	BOTNAME=${config_vars[0]:-Sonny}
-	read -p "Enter Discord Bot Token []" config_vars[1]
-	read -p "Enter Radarr URL [http://localhost:7878/api]" config_vars[2]
-	RURL=${config_vars[2]:-http://localhost:7878/api}
-	read -p "Enter Radarr API Token []" config_vars[3]
-	read -p "Enter OMDB API Key []" config_vars[4]
-	return $config_vars
+	read -p "Enter Discord Bot Name [Sonny] " dname
+	dname=${dname:-Sonny}
+	read -p "Enter Discord Bot Token [NTIzNTg0NzUwNzExOTk2NDE4.DvcSng.C42JSFqRbXrXE4ghPxWoZsFv2sQ] " dtoken
+	dtoken=${dtoken:-NTIzNTg0NzUwNzExOTk2NDE4.DvcSng.C42JSFqRbXrXE4ghPxWoZsFv2sQ}
+	read -p "Enter Radarr URL [http://localhost:7878/api] " rurl
+	rurl=${rurl:-http://localhost:7878/api}
+	read -p "Enter path to Movies directory [/mnt/MEDIA/MOVIES] " rpath
+	rpath=${rpath:-/mnt/MEDIA/MOVIES}
+	read -p "Enter Radarr API Token [37c64542ba294e7ab9d8b7e550fed37c] " rapi
+	rapi=${rapi:-37c64542ba294e7ab9d8b7e550fed37c}
+	read -p "Enter OMDB API Key [76333441] " oapi
+	oapi=${oapi:-76333441}
+	read -p "Enter path to log directory (needs a trailing /) [/opt/PlexRequestBot/logs/] " lpath
+	lpath=${lpath:-/opt/PlexRequestBot/logs/}
+	sdname="$(echo "$dname" | tr '[:upper:]' '[:lower:]')"
+	read -p "User to run bot as? (Default is Bot Name) [$sdname] " usname
+	usname=${usname:-"$sdname"}
 }
 
-config_setup(vars) {
+config_setup () 
+{
 	conf_file="/opt/PlexRequestBot/config.json"
 	cat <<EOF >$conf_file
 {
   "discord":{
-    "name":"${vars[0]}",
-    "token":"${vars[1]}"
+    "name":"$dname",
+    "token":"$dtoken"
   },
   "radarr":{
-    "url":"${vars[2]}",
-    "token":"${vars[3]}"
+    "url":"$rurl",
+    "token":"$rapi",
+    "path":"$rpath"
   },
   "omdb":{
-        "token":"${vars[4]}"
+  	"token":"$oapi"
+  },
+  "system":{
+  	"log":"$lpath"
   }
 }
 EOF
 }
 
-install_service(name) {
-	serv_file="/usr/lib/systemd/system/$name.service"
+install_service() 
+{
+	serv_file="/usr/lib/systemd/system/$sdname.service"
 	cat <<EOF >$serv_file
 [Unit]
-Description=${name} Service
+Description=$sdname Service
 After=network.target
 
 [Service]
 Type=idle
 ExecStart=/usr/bin/python3 /opt/PlexRequestBot/main.py
 WorkingDirectory=/opt/PlexRequestBot
-User=${name}
-Group=${name}
+User=$usname
+Group=$usname
 
 [Install]
 WantedBy=multi-user.target
 EOF
 systemctl daemon-reload
-read -p "Run $name on startup?" start_check
+read -p "Run $dname on startup? " start_check
 if [[ $start_check =~ ^(yes|y)$ ]]
 then
-	systemctl enable $name.service
+	systemctl enable $sdname
 fi
 }
 
-
-
-function main () {
+main () 
+{
+	clear
 	cat << EOF
+
 PRERQUISITES: Before installation you will need the following:
 Discord Bot name and secret: https://discordapp.com/developers/applications/me
 URL of your Radarr server (Usually http://localhost:7878/api if running locally)
@@ -101,38 +142,54 @@ OMDB Token: http://www.omdbapi.com/apikey.aspx (Free works just fine)
 
 EOF
 
-	Read -p "Press [ENTER] Key when you have aquired the prereqs..."
+	read -p "Press [ENTER] Key when you have aquired the prereqs..."
 	clear
 
-	declare -a config_vars
-	fill_vars(vars)
-	echo "Discord Bot Name: $config_vars[0]"
-	echo "Discord Bot Token: $config_vars[1]"
-	echo "Radarr URL: $config_vars[2]"
-	echo "Radarr API Token: $config_vars[3]"
-	echo "OMDB API Key: $config_vars[4]"
+	#declare -a config_vars
+	fill_vars
+	clear
+	usname=$(echo "$usname" | tr '[:upper:]' '[:lower:]')
+	echo "Discord Bot Name: $dname"
+	echo "Discord Bot Token: $dtoken"
+	echo "Radarr URL: $rurl"
+	echo "Radarr Path: $rpath"
+	echo "Radarr API Token: $rapi"
+	echo "OMDB API Key: $oapi"
+	echo "Log Path: $lpath"
+	echo "Username to run as: $usname"
 	echo " "
-	read -p "Are these variables correct?" VAR_CHECK
+	read -p "Are these variables correct? " VAR_CHECK
 	if [[ ! $VAR_CHECK =~ ^(yes|y)$ ]]
 	then
-		fill_vars(config_vars)
+		fill_vars
 	fi
 
 	install_dependancies
-	env_setup(config_vars)
+	env_setup 
 	cd /opt/PlexRequestBot
-	config_setup(config_vars)
-	read -p "Install $config_vars[0] as a service?" serv_check
+	config_setup
+	clear 
+	read -p "Install $dname as a service? " serv_check
 	if [[ $serv_check =~ ^(yes|y)$ ]]
 	then
-		install_service(config_vars[0])
+		clear
+		install_service
 	fi
 	echo "Complete"
 	if [[ $serv_check =~ ^(yes|y)$ ]]
 	then
-		echo "$config_vars[0] can be started and stopped using systemctl start/stop $config_vars[0]"
+		clear
+		echo "$dname can be started and stopped using systemctl start/stop $sdname"
 	else
-		echo "$config_vars[0] can be run from the /opt/PlexRequestBot/ directory using python3 main.py"
+		clear
+		echo "$dname can be run from the /opt/PlexRequestBot/ directory using python3 main.py"
 	fi
+	read -p "Start $dname now? " start_check
+	if [[ $start_check =~ ^(yes|y)$ ]]; then systemctl start $sdname; fi
 }
-exit 0
+if [[ "$EUID" -ne 0 ]]
+	then echo "Installer must be run as root!"
+	exit 0
+else
+	main
+fi
