@@ -63,16 +63,16 @@ fill_vars ()
 	echo "Enter the following information or press enter to use default values."
 	read -p "Enter Discord Bot Name [Sonny] " dname
 	dname=${dname:-Sonny}
-	read -p "Enter Discord Bot Token [NTIzNTg0NzUwNzExOTk2NDE4.DvcSng.C42JSFqRbXrXE4ghPxWoZsFv2sQ] " dtoken
-	dtoken=${dtoken:-NTIzNTg0NzUwNzExOTk2NDE4.DvcSng.C42JSFqRbXrXE4ghPxWoZsFv2sQ}
+	read -p "Enter Discord Bot Token [] " dtoken
+	dtoken=${dtoken:-0.0.0}
 	read -p "Enter Radarr URL [http://localhost:7878/api] " rurl
 	rurl=${rurl:-http://localhost:7878/api}
 	read -p "Enter path to Movies directory [/mnt/MEDIA/MOVIES] " rpath
 	rpath=${rpath:-/mnt/MEDIA/MOVIES}
-	read -p "Enter Radarr API Token [37c64542ba294e7ab9d8b7e550fed37c] " rapi
-	rapi=${rapi:-37c64542ba294e7ab9d8b7e550fed37c}
-	read -p "Enter OMDB API Key [76333441] " oapi
-	oapi=${oapi:-76333441}
+	read -p "Enter Radarr API Token [] " rapi
+	rapi=${rapi:-0}
+	read -p "Enter OMDB API Key [] " oapi
+	oapi=${oapi:-0}
 	read -p "Enter path to log directory (needs a trailing /) [/opt/PlexRequestBot/logs/] " lpath
 	lpath=${lpath:-/opt/PlexRequestBot/logs/}
 	sdname="$(echo "$dname" | tr '[:upper:]' '[:lower:]')"
