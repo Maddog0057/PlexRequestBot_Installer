@@ -54,7 +54,7 @@ env_setup ()
 	if [[ ! $(echo $lpath) =~ /opt/PlexRequestBot ]]; then chown -R $usname:$usname $lpath; fi
 	chown -R $usname:$usname /opt/PlexRequestBot
 	cd /opt/PlexRequestBot/
-	python3 -m pip install -U https://github.com/Rapptz/discord.py/archive/rewrite.zip
+	python3 -m pip install -U discord.py
 	python3 -m pip install -r requirements.txt
 }
 
